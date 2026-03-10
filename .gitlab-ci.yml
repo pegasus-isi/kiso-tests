@@ -1,0 +1,142 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+stages:
+  - check
+  - e2e
+
+.kiso: &kiso
+  stage: check
+  parallel:
+    matrix:
+      - EXPERIMENT_DIR:
+          - kiso-experiment-template
+          - kiso-agentic-experiment
+          - kiso-orcasound-experiment # Needs x86_64
+          - kiso-plankifier-experiment
+          - airquality-workflow
+          - crophealth-workflow
+          - earthquake-workflow
+          - soilmoisture-workflow
+  before_script:
+    - env
+    - curl -L --output "${EXPERIMENT_DIR}.zip" "https://github.com/pegasus-isi/${EXPERIMENT_DIR}/archive/refs/heads/main.zip"
+    - unzip "${EXPERIMENT_DIR}.zip"
+    - rm "${EXPERIMENT_DIR}.zip"
+
+    - cd "${EXPERIMENT_DIR}-main"
+    - python3 -m venv .venv
+    - source .venv/bin/activate
+
+    - pip install "kiso[vagrant,chameleon,fabric] @ git+https://github.com/pegasus-isi/kiso.git"
+
+    - chmod 600 "${CHAMELEON_EDGE_RC}" "${CHAMELEON_TACC_RC}" "${FABRIC_BASTION_PRIVATE_KEY}" "${FABRIC_SLIVER_PRIVATE_KEY}" "${CHAMELEON_PRIVATE_KEY}"
+
+    - mkdir -p secrets
+    - cp "${FABRIC_RC}" secrets/fabric_rc
+    - cp "${FABRIC_BASTION_PUBLIC_KEY}" "${FABRIC_BASTION_PRIVATE_KEY}.pub"
+    - cp "${CHAMELEON_EDGE_RC}" secrets/edge-app-cred-oac-edge-openrc.sh
+    - cp "${CHAMELEON_TACC_RC}" secrets/tacc-app-cred-oac-edge-openrc.sh
+    - cp "${OPENAQ_API_KEY}" secrets/openaq_api_key
+    - cp "${KAGGLE_RC}" secrets/kaggle.sh
+
+    - export DEBIAN_FRONTEND=noninteractive
+  after_script:
+    - cd "${EXPERIMENT_DIR}-main"
+    - rm -rf secrets
+  tags:
+    - arm64
+    - macOS-13
+    - shell
+  retry: 0
+  timeout: 2 hours
+
+# Check
+
+Kiso Check:
+  <<: *kiso
+  script:
+    - kiso check
+  timeout: 10 minutes
+
+# Integration tests
+
+Kiso Integration Tests (Vagrant):
+  <<: *kiso
+  stage: e2e
+  parallel:
+    matrix:
+      - EXPERIMENT_DIR:
+          - kiso-experiment-template
+          - kiso-agentic-experiment
+  script:
+    - kiso --debug up
+    - kiso --debug run
+    - find output
+  after_script:
+    - cd "${EXPERIMENT_DIR}-main"
+    - source .venv/bin/activate
+    - kiso --debug down
+    - rm -rf secrets
+  artifacts:
+    paths:
+      - ${EXPERIMENT_DIR}-main/output
+  rules:
+    - if: $CI_PIPELINE_NAME == 'workflow'
+
+Kiso Integration Tests (FABRIC):
+  <<: *kiso
+  stage: e2e
+  image: python:3.9
+  parallel:
+    matrix:
+      - EXPERIMENT_DIR:
+          - airquality-workflow
+          - crophealth-workflow
+          - earthquake-workflow
+          - soilmoisture-workflow
+  script:
+    - apt update && apt install -y rsync
+    - kiso --debug up
+    - kiso --debug run
+    - find output
+  after_script:
+    - cd "${EXPERIMENT_DIR}-main"
+    - rm -rf secrets
+    - source .venv/bin/activate
+    - kiso --debug down
+    - rm -rf secrets
+  tags:
+    - docker
+  artifacts:
+    paths:
+      - ${EXPERIMENT_DIR}-main/output
+  rules:
+    - if: $CI_PIPELINE_NAME == 'workflow'
+
+# Kiso Integration Tests (Chameleon):
+#   <<: *kiso
+#   stage: e2e
+#   image: python:3.9
+#   parallel:
+#     matrix:
+#       - EXPERIMENT_DIR:
+#           - kiso-plankifier-experiment
+#   script:
+#     - apt update && apt install -y rsync
+#     - sed --in-place -e "s/key_name: .*$/key_name: ${CHAMELEON_KEY_NAME}/" experiment.yml ; md5sum experiment.yml
+#     - kiso --debug up
+#     - kiso --debug run
+#     - find output
+#   after_script:
+#     - cd "${EXPERIMENT_DIR}-main"
+#     - source .venv/bin/activate
+#     - kiso --debug down
+#     - rm -rf secrets
+#   tags:
+#     - docker
+#   artifacts:
+#     paths:
+#       - ${EXPERIMENT_DIR}-main/output
+#   rules:
+#     - if: $CI_PIPELINE_NAME == 'workflow'
