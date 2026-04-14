@@ -13,6 +13,7 @@ stages:
           - kiso-experiment-template
           - kiso-agentic-experiment
           - kiso-multi-agent-experiment
+          - kiso-network-experiment
           - kiso-orcasound-experiment # Needs x86_64
           - kiso-plankifier-experiment
           - airquality-workflow
@@ -107,6 +108,7 @@ Kiso Integration Tests (FABRIC):
       - EXPERIMENT_DIR:
           - kiso-agentic-experiment
           - kiso-multi-agent-experiment
+          - kiso-network-experiment
           - airquality-workflow
           - crophealth-workflow
           - earthquake-workflow
