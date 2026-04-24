@@ -35,6 +35,9 @@ stages:
 
     - chmod 600 "${CHAMELEON_EDGE_RC}" "${CHAMELEON_TACC_RC}" "${FABRIC_BASTION_PRIVATE_KEY}" "${FABRIC_SLIVER_PRIVATE_KEY}" "${CHAMELEON_PRIVATE_KEY}"
 
+    - eval $(ssh-agent -s)
+    - ssh-add "${FABRIC_BASTION_PRIVATE_KEY}" "${FABRIC_SLIVER_PRIVATE_KEY}" "${CHAMELEON_PRIVATE_KEY}"
+
     - mkdir -p secrets
     - cp "${FABRIC_RC}" secrets/fabric_rc
     - cp "${FABRIC_BASTION_PUBLIC_KEY}" "${FABRIC_BASTION_PRIVATE_KEY}.pub"
