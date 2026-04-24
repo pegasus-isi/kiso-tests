@@ -36,6 +36,7 @@ stages:
     - chmod 600 "${CHAMELEON_EDGE_RC}" "${CHAMELEON_TACC_RC}" "${FABRIC_BASTION_PRIVATE_KEY}" "${FABRIC_SLIVER_PRIVATE_KEY}" "${CHAMELEON_PRIVATE_KEY}"
 
     - eval $(ssh-agent -s)
+    - echo "$SSH_AGENT_PID" > /tmp/ssh-agent-pid-${CI_JOB_ID}
     - ssh-add "${FABRIC_BASTION_PRIVATE_KEY}" "${FABRIC_SLIVER_PRIVATE_KEY}" "${CHAMELEON_PRIVATE_KEY}"
 
     - mkdir -p secrets
@@ -50,6 +51,8 @@ stages:
   after_script:
     - cd "${EXPERIMENT_DIR}"
     - rm -rf secrets
+    - kill `cat /tmp/ssh-agent-pid-${CI_JOB_ID}` || true
+    - rm -f /tmp/ssh-agent-pid-${CI_JOB_ID}
   tags:
     - arm64
     - macOS-13
