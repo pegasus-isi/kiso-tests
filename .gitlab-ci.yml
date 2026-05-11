@@ -7,6 +7,8 @@ stages:
 
 .kiso: &kiso
   stage: check
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 2h55m
   parallel:
     matrix:
       - EXPERIMENT_DIR:
